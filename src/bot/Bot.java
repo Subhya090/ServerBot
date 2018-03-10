@@ -10,7 +10,6 @@ import org.telegram.telegrambots.exceptions.TelegramApiException;
 
 import java.io.BufferedReader;
 import java.io.File;
-
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -39,7 +38,7 @@ public class Bot extends TelegramLongPollingBot {
 			String patch = "";
 			String comand = "";
 			String help = "Comand:\n/getFile <full patch> - get file to patch\n/getIP - get server IP adress\n"
-					+ "/getLog - log menu\n/execute <comand> - execute comand\n/help - comand menu";
+					+ "/getLog - log menu\n/execute <comand> - execute comand\n/info - get server info\n/help - comand menu";
         
 			if(isAdmin(user_username)){
 
@@ -60,6 +59,10 @@ public class Bot extends TelegramLongPollingBot {
 					break;
 				case "/help":
 					sendInline(help,chat_id);
+					log(user_first_name, user_username, Long.toString(user_id), message_text);
+					break;
+				case "/info":
+					sendMessage(sysInfo(),chat_id);
 					log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
 				case "/getLog":
@@ -246,6 +249,38 @@ public class Bot extends TelegramLongPollingBot {
 			return false;
 		}	
 	}
+    // develop
+    public String sysInfo(){
+    	String info = "";
+    	String memory = ((new File("/").getTotalSpace())/1024/1024) + " MB";
+    	String cpu = "";
+    	String ram = "";
+		memory = "Free memory on Disk: " + memory + "\n";
+		try {
+			BufferedReader reader = new BufferedReader(new FileReader("/proc/loadavg"));
+			String text = reader.readLine();
+			reader.close();
+			String[] textParts = text.split(" ");
+			cpu = "CPU load Now - " + (Double.parseDouble(textParts[0]))*100 + "%\nAverage CPU load 5 min - "
+					 + (Double.parseDouble(textParts[1]))*100 + "%\nAverage CPU load 15 min - "
+					 + (Double.parseDouble(textParts[2]))*100 + "%\n";
+		} catch(Exception e){
+			e.printStackTrace();
+		}
+		BufferedReader reader;
+		try {
+			reader = new BufferedReader(new FileReader("/proc/meminfo"));
+			String memTotal = reader.readLine();
+			String memFree = reader.readLine();
+			ram = memTotal + "\n" + memFree;
+			reader.close();
+		} catch (Exception e) {
+			
+			e.printStackTrace();
+		}
+		info = memory + cpu + ram;
+    	return info;
+    }
 }
 
 		
