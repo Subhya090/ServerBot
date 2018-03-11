@@ -2,6 +2,7 @@ package bot;
 
 import org.telegram.telegrambots.api.methods.send.SendDocument;
 import org.telegram.telegrambots.api.methods.send.SendMessage;
+import org.telegram.telegrambots.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.api.objects.Update;
 import org.telegram.telegrambots.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.api.objects.replykeyboard.buttons.InlineKeyboardButton;
@@ -62,7 +63,21 @@ public class Bot extends TelegramLongPollingBot {
 					log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
 				case "/info":
-					sendMessage(sysInfo(),chat_id);
+			        List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
+			        List<InlineKeyboardButton> buttons1 = new ArrayList<>();
+			        buttons1.add(new InlineKeyboardButton().setText("update").setCallbackData("update"));
+			        buttons.add(buttons1);
+			        InlineKeyboardMarkup markupKeyboard = new InlineKeyboardMarkup();
+			        markupKeyboard.setKeyboard(buttons);
+			        SendMessage sm = new SendMessage() 
+			                .setChatId(chat_id)
+			                .setText(sysInfo())
+			                .setReplyMarkup(markupKeyboard);
+			    	try {
+			            execute(sm); 
+			        } catch (TelegramApiException e) {
+			            e.printStackTrace();
+			        }
 					log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
 				case "/getLog":
@@ -122,6 +137,26 @@ public class Bot extends TelegramLongPollingBot {
       } else if (update.hasCallbackQuery()) {
           String call_data = update.getCallbackQuery().getData();
           long chat_id = update.getCallbackQuery().getMessage().getChatId();
+          int mes_id = update.getCallbackQuery().getMessage().getMessageId();
+          if(call_data.equals("update")) {
+        	  List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
+		      List<InlineKeyboardButton> buttons1 = new ArrayList<>();
+		      buttons1.add(new InlineKeyboardButton().setText("update").setCallbackData("update"));
+		      buttons.add(buttons1);
+		      InlineKeyboardMarkup markupKeyboard = new InlineKeyboardMarkup();
+		      markupKeyboard.setKeyboard(buttons);
+        	  try {
+        		  EditMessageText new_message = new EditMessageText()
+                          .setChatId(chat_id)
+                          .setMessageId(mes_id)
+                          .setReplyMarkup(markupKeyboard)
+                          .setText(sysInfo());
+                  execute(new_message);
+                  log("CalbackQuery comand chat ", "call_data = " + call_data, Long.toString(chat_id), "");
+      		  } catch(Exception e){
+      			  e.printStackTrace();
+      		  }
+          }
           if(call_data.equals("reboot")) {
         	  try {
         		  sendMessage("#reboot", chat_id);
@@ -186,7 +221,7 @@ public class Bot extends TelegramLongPollingBot {
         return token;
     }
     
-    private void log(String first_name, String user_username, String user_id, String txt) {
+    public void log(String first_name, String user_username, String user_id, String txt) {
     	try {
 			fw = new FileWriter("log.txt",true);
 			DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
@@ -249,13 +284,15 @@ public class Bot extends TelegramLongPollingBot {
 			return false;
 		}	
 	}
-    // develop
+   
     public String sysInfo(){
     	String info = "";
-    	String memory = ((new File("/").getTotalSpace())/1024/1024) + " MB";
+    	String memory = "";
+    	
     	String cpu = "";
     	String ram = "";
-		memory = "Free memory on Disk: " + memory + "\n";
+    	long memorySize = (new File("/").getTotalSpace());
+		memory = "Free memory on Disk: " + memorySize/1024/1024 + " MB\n";
 		try {
 			BufferedReader reader = new BufferedReader(new FileReader("/proc/loadavg"));
 			String text = reader.readLine();
@@ -264,18 +301,12 @@ public class Bot extends TelegramLongPollingBot {
 			cpu = "CPU load Now - " + (Double.parseDouble(textParts[0]))*100 + "%\nAverage CPU load 5 min - "
 					 + (Double.parseDouble(textParts[1]))*100 + "%\nAverage CPU load 15 min - "
 					 + (Double.parseDouble(textParts[2]))*100 + "%\n";
-		} catch(Exception e){
-			e.printStackTrace();
-		}
-		BufferedReader reader;
-		try {
-			reader = new BufferedReader(new FileReader("/proc/meminfo"));
-			String memTotal = reader.readLine();
-			String memFree = reader.readLine();
+			BufferedReader readerMem = new BufferedReader(new FileReader("/proc/meminfo"));
+			String memTotal = readerMem.readLine();
+			String memFree = readerMem.readLine();
 			ram = memTotal + "\n" + memFree;
-			reader.close();
-		} catch (Exception e) {
-			
+			readerMem.close();
+		} catch(Exception e){
 			e.printStackTrace();
 		}
 		info = memory + cpu + ram;
