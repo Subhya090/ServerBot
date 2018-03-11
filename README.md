@@ -8,6 +8,7 @@ ServerBot allows you to remotely manage the linux server with Telegram messenger
 * `/getIP` - get server IP adress
 * `/getLog` - log menu
 * `/execute <comand>` - execute comand
+* `/info` - get server info
 * quick button for reboot or shutdown
   
 ## `manifest.txt` and `log.txt`
