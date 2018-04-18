@@ -14,42 +14,38 @@ import org.telegram.telegrambots.exceptions.TelegramApiException;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 public class Bot extends TelegramLongPollingBot {
-	private int uploadFlag = 0;
-	private String token;
+	public int uploadFlag = 0;
+	public String token;
 	private String botName;
-	private FileWriter fw;
-	private String upPath = "";
-
+	public String upPath = "";
+	String path = "";
+	String command = "";
+	String help = "Command:\n/getFile <full path> - get file to path\n/getIP - get server IP adress\n"
+			+ "/getlog - log menu\n/execute <command> - execute command\n/info - get server info\n"
+			+ "/uploadFile <full path> - upload file to server to path, path example: /home/user/ \n/help - command menu";
+	BotMethod bm = BotMethod.getInstance();
 	@Override
 	public void onUpdateReceived(Update update) {
+		
 		if (update.hasMessage() && update.getMessage().hasText()){
 			String user_first_name = update.getMessage().getChat().getFirstName();
 			String user_username = update.getMessage().getChat().getUserName();
 			long user_id = update.getMessage().getChat().getId();
 			String message_text = update.getMessage().getText().trim();
 			long chat_id = update.getMessage().getChatId();
-			String path = "";
-			String command = "";
-			String help = "Command:\n/getFile <full path> - get file to path\n/getIP - get server IP adress\n"
-					+ "/getLog - log menu\n/execute <command> - execute command\n/info - get server info\n"
-					+ "/uploadFile <full path> - upload file to server to path, path example: /home/user/ \n/help - command menu";
+			
         
-			if(isAdmin(user_username)) {
+			if(bm.isAdmin(user_username)) {
 
 				if(message_text.startsWith("/execute <")) {
 					command = message_text.substring(10,message_text.length() - 1); 
@@ -68,45 +64,31 @@ public class Bot extends TelegramLongPollingBot {
 				case "/start":	
 					String hello = "Hello " + user_username + "!\n" + help;
 					sendInline(hello, chat_id);
-					log(user_first_name, user_username, Long.toString(user_id), message_text);
+					bm.log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
 				case "/help":	
 					sendInline(help,chat_id);
-					log(user_first_name, user_username, Long.toString(user_id), message_text);
+					bm.log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
 				case "/info":	
-					List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
-				    List<InlineKeyboardButton> buttons1 = new ArrayList<>();
-				    buttons1.add(new InlineKeyboardButton().setText("update").setCallbackData("update"));
-				    buttons.add(buttons1);
-				    InlineKeyboardMarkup markupKeyboard = new InlineKeyboardMarkup();
-				    markupKeyboard.setKeyboard(buttons);
-				    SendMessage sm = new SendMessage() 
-				            .setChatId(chat_id)
-				            .setText(sysInfo())
-				            .setReplyMarkup(markupKeyboard);
-				    try {
-				        execute(sm); 
-				    } catch (TelegramApiException e) {
-				        e.printStackTrace();
-				    }
-					log(user_first_name, user_username, Long.toString(user_id), message_text);
+					sendInfoMessage(chat_id);
+					bm.log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
-				case "/getLog":
-					String logmenu = "Logs:\n1)/syslog (/var/log/syslog) - System log\n2)/authlog (/var/log/auth.log) - authorization log"
-							+ "\n3)/faillog (/var/log/faillog) - fail log\n4) /botlog - Log Bot";
+				case "/getlog":
+					String logmenu = "logs:\n1)/syslog (/var/log/syslog) - System log\n2)/authlog (/var/log/auth.log) - authorization log"
+							+ "\n3)/faillog (/var/log/faillog) - fail log\n4) /botlog - log Bot";
 					sendMessage(logmenu, chat_id);
-					log(user_first_name, user_username, Long.toString(user_id), message_text);
+					bm.log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
 				case "/getIP":
-					sendMessage(getIp(),chat_id);
-					log(user_first_name, user_username, Long.toString(user_id), message_text);
+					sendMessage(bm.getIp(),chat_id);
+					bm.log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
 				case "/executel":
 					try {
-						String result = executeCom(command);
+						String result = bm.executeCom(command);
 						sendMessage("execute!\nOutput>>\n"+ result,chat_id);
-						log(user_first_name, user_username, Long.toString(user_id), "/execute" + " " + command);
+						bm.log(user_first_name, user_username, Long.toString(user_id), "/execute" + " " + command);
 					} catch (IOException | InterruptedException e) {
 						sendMessage("Error!",chat_id);
 						e.printStackTrace();
@@ -115,28 +97,28 @@ public class Bot extends TelegramLongPollingBot {
 				
 				case "/getFilel":
 					sendFile(path, chat_id, "file to path <" + path + ">");
-					log(user_first_name, user_username, Long.toString(user_id), "/getFile" + " " + path);
+					bm.log(user_first_name, user_username, Long.toString(user_id), "/getFile" + " " + path);
 					break;
 				case "/uploadFilel":
 					sendMessage("Send file",chat_id);
 					uploadFlag = 1;
-					log(user_first_name, user_username, Long.toString(user_id), "/uploadFile" + " " + upPath);
+					bm.log(user_first_name, user_username, Long.toString(user_id), "/uploadFile" + " " + upPath);
 					break;
 				case "/syslog":
-					sendFile("/var/log/syslog",chat_id,"#SysLog");
-					log(user_first_name, user_username, Long.toString(user_id), message_text);
+					sendFile("/var/log/syslog",chat_id,"#Syslog");
+					bm.log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
 				case "/authlog":
-					sendFile("/var/log/auth.log",chat_id,"#AuthLog");
-					log(user_first_name, user_username, Long.toString(user_id), message_text);
+					sendFile("/var/log/auth.log",chat_id,"#Authlog");
+					bm.log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
 				case "/faillog":
-					sendFile("/var/log/faillog",chat_id,"#FailLog");
-					log(user_first_name, user_username, Long.toString(user_id), message_text);
+					sendFile("/var/log/faillog",chat_id,"#Faillog");
+					bm.log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
 				case "/botlog":
-					sendFile("log.txt",chat_id,"#BotLog");
-					log(user_first_name, user_username, Long.toString(user_id), message_text);
+					sendFile("log.txt",chat_id,"#Botlog");
+					bm.log(user_first_name, user_username, Long.toString(user_id), message_text);
 					break;
 				default:
 					sendMessage("unknown command",chat_id);
@@ -149,29 +131,14 @@ public class Bot extends TelegramLongPollingBot {
           long chat_id = update.getCallbackQuery().getMessage().getChatId();
           int mes_id = update.getCallbackQuery().getMessage().getMessageId();
           if(call_data.equals("update")) {
-        	  List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
-		      List<InlineKeyboardButton> buttons1 = new ArrayList<>();
-		      buttons1.add(new InlineKeyboardButton().setText("update").setCallbackData("update"));
-		      buttons.add(buttons1);
-		      InlineKeyboardMarkup markupKeyboard = new InlineKeyboardMarkup();
-		      markupKeyboard.setKeyboard(buttons);
-		      EditMessageText new_message = new EditMessageText()
-                      .setChatId(chat_id)
-                      .setMessageId(mes_id)
-                      .setReplyMarkup(markupKeyboard)
-                      .setText(sysInfo());
-              try {
-				  execute(new_message);
-			  } catch (TelegramApiException e) {
-				e.printStackTrace();
-			  }
-        	  log("CalbackQuery command chat ", "call_data = " + call_data, Long.toString(chat_id), "");
+        	  editInfoMessage(chat_id, mes_id);
+        	  bm.log("CalbackQuery command chat ", "call_data = " + call_data, Long.toString(chat_id), "");
           }
           if(call_data.equals("reboot")) {
         	  try {
         		  sendMessage("#reboot", chat_id);
-        		  executeCom("reboot");
-      			  log("CalbackQuery command chat ", "call_data = " + call_data, Long.toString(chat_id), "");
+        		  bm.executeCom("reboot");
+      			  bm.log("CalbackQuery command chat ", "call_data = " + call_data, Long.toString(chat_id), "");
       		  } catch(Exception e){
       			  e.printStackTrace();
       		  }
@@ -179,8 +146,8 @@ public class Bot extends TelegramLongPollingBot {
           if(call_data.equals("off")){
         	  try {
         		  sendMessage("#off", chat_id);
-        		  executeCom("shutdown -h now");
-        		  log("CalbackQuery command chat ", "call_data = " + call_data, Long.toString(chat_id), "");
+        		  bm.executeCom("shutdown -h now");
+        		  bm.log("CalbackQuery command chat ", "call_data = " + call_data, Long.toString(chat_id), "");
       		  } catch(Exception e){
       			e.printStackTrace();
       		  }
@@ -194,7 +161,7 @@ public class Bot extends TelegramLongPollingBot {
     	  try {
   			uploadFile(file_name, file_id);
 	        sendMessage("#uploaded file " + file_name + " to " + upPath, chat_id);
-	        log(user_username, " upload file ", file_name, " to " + upPath);
+	        bm.log(user_username, " upload file ", file_name, " to " + upPath);
 	      }catch(IOException e)
 	      {
 	         e.printStackTrace();
@@ -243,20 +210,6 @@ public class Bot extends TelegramLongPollingBot {
         return token;
     }
     
-    public void log(String first_name, String user_username, String user_id, String txt) {
-    	try {
-			fw = new FileWriter("log.txt",true);
-			DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
-			Date date = new Date();
-			
-			fw.write(dateFormat.format(date));
-			fw.write(" Message from " + first_name + " " + user_username + ". (id = " + user_id + ") " + txt+ "\r\n");
-			fw.close();
-    	} catch(Exception e){
-    		e.printStackTrace();
-    	}
-    }
-    
     public void sendMessage(String message, long chat_id) {
     	SendMessage sm = new SendMessage() 
                 .setChatId(chat_id)
@@ -282,101 +235,6 @@ public class Bot extends TelegramLongPollingBot {
     	}
     }
     
-    public boolean isAdmin(String user) {
-		String text;
-		int k = 0;
-		try {
-			BufferedReader reader = new BufferedReader(new FileReader("manifest.txt"));
-			text = reader.readLine();
-			reader.close();
-			String[] textParts = text.split("#");
-			
-			for(int i = 0; i < textParts.length; i++) {
-				if(user.equals(textParts[i])) {
-					k++;
-				}
-			}
-		} catch (IOException e){
-			e.printStackTrace();
-		}
-		
-		if(k > 0) {
-			return true;
-		} else{
-			return false;
-		}	
-	}
-   
-    public String sysInfo() {
-    	String info = "";
-    	String memory = "";
-    	
-    	String cpu = "";
-    	String ram = "";
-    	long memorySize = (new File("/").getTotalSpace());
-		memory = "Free memory on Disk: " + memorySize/1024/1024 + " MB\n";
-		try {
-			BufferedReader reader = new BufferedReader(new FileReader("/proc/loadavg"));
-			String text = reader.readLine();
-			reader.close();
-			String[] textParts = text.split(" ");
-			cpu = "CPU load Now - " + (Double.parseDouble(textParts[0]))*100 + "%\nAverage CPU load 5 min - "
-					 + (Double.parseDouble(textParts[1]))*100 + "%\nAverage CPU load 15 min - "
-					 + (Double.parseDouble(textParts[2]))*100 + "%\n";
-			BufferedReader readerMem = new BufferedReader(new FileReader("/proc/meminfo"));
-			String memTotal = readerMem.readLine();
-			String memFree = readerMem.readLine();
-			ram = memTotal + "\n" + memFree;
-			readerMem.close();
-		} catch(Exception e){
-			e.printStackTrace();
-		}
-		info = memory + cpu + ram;
-		return info;
-    }
-    
-    public String getIp() {
-    	String ip = "ping error";
-		try{
-			URL whatismyip = new URL("http://checkip.amazonaws.com"); 
-			BufferedReader in = new BufferedReader(new InputStreamReader( whatismyip.openStream())); 
-			ip = in.readLine();
-		} catch(Exception e){
-			e.printStackTrace();
-		}
-		return ip;
-    }
-    
-    public String executeCom(String command) throws IOException, InterruptedException{
-    	StringBuilder sb = new StringBuilder();
-        String[] commands = new String[]{"/bin/sh","-c", command};
-        try {
-            Process proc = new ProcessBuilder(commands).start();
-            BufferedReader stdInput = new BufferedReader(new 
-                    InputStreamReader(proc.getInputStream()));
-
-            BufferedReader stdError = new BufferedReader(new 
-                    InputStreamReader(proc.getErrorStream()));
-
-            String s = null;
-            while ((s = stdInput.readLine()) != null) {
-                sb.append(s);
-                sb.append("\n");
-            }
-
-            while ((s = stdError.readLine()) != null) {
-                sb.append(s);
-                sb.append("\n");
-            }
-            Thread.sleep(200);
-            proc.destroy();
-        } catch (IOException e) {
-        	e.printStackTrace();
-        	return "ERROR!";
-        }
-        return sb.toString();
-    }
-    
     public void uploadFile(String file_name, String file_id) throws IOException{
 		URL url = new URL("https://api.telegram.org/bot"+token+"/getFile?file_id="+file_id);
 		BufferedReader in = new BufferedReader(new InputStreamReader( url.openStream())); 
@@ -393,6 +251,45 @@ public class Bot extends TelegramLongPollingBot {
         rbc.close();
         uploadFlag = 0;
         System.out.println("Uploaded!");
+    }
+    
+    public void sendInfoMessage(long chat_id){
+    	
+		List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
+	    List<InlineKeyboardButton> buttons1 = new ArrayList<>();
+	    buttons1.add(new InlineKeyboardButton().setText("update").setCallbackData("update"));
+	    buttons.add(buttons1);
+	    InlineKeyboardMarkup markupKeyboard = new InlineKeyboardMarkup();
+	    markupKeyboard.setKeyboard(buttons);
+	    SendMessage sm = new SendMessage() 
+	            .setChatId(chat_id)
+	            .setText(bm.sysInfo())
+	            .setReplyMarkup(markupKeyboard);
+	    try {
+	        execute(sm); 
+	    } catch (TelegramApiException e) {
+	        e.printStackTrace();
+	    }
+    }
+    
+    public void editInfoMessage(long chat_id, int mes_id){
+    	
+  	    List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
+	    List<InlineKeyboardButton> buttons1 = new ArrayList<>();
+	    buttons1.add(new InlineKeyboardButton().setText("update").setCallbackData("update"));
+	    buttons.add(buttons1);
+	    InlineKeyboardMarkup markupKeyboard = new InlineKeyboardMarkup();
+	    markupKeyboard.setKeyboard(buttons);
+	    EditMessageText new_message = new EditMessageText()
+               .setChatId(chat_id)
+               .setMessageId(mes_id)
+               .setReplyMarkup(markupKeyboard)
+               .setText(bm.sysInfo());
+        try {
+			   execute(new_message);
+		} catch (TelegramApiException e) {
+			   e.printStackTrace();
+	    }
     }
 }
 
